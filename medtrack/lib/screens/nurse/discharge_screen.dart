@@ -1,112 +1,102 @@
 import 'package:flutter/material.dart';
-import '../../core/app_colors.dart'; // Two levels up to core
+import '../../core/app_colors.dart';
 
-class DischargeScreen extends StatelessWidget {
+class DischargeScreen extends StatefulWidget {
   const DischargeScreen({super.key});
+
+  @override
+  State<DischargeScreen> createState() => _DischargeScreenState();
+}
+
+class _DischargeScreenState extends State<DischargeScreen> {
+  bool isProtocol1 = true;
+  bool isProtocol2 = true;
+  bool isProtocol3 = true;
+  bool isProtocol4 = false;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("Discharge Patient"),
-        leading: const Icon(Icons.close),
+        title: const Text("Discharge Patient", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        centerTitle: true,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
-              children: [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundImage: NetworkImage(
-                    'https://via.placeholder.com/150',
-                  ),
+             // Patient Header
+             Row(
+               children: [
+                 const CircleAvatar(radius: 30, backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=12')),
+                 const SizedBox(width: 16),
+                 const Column(
+                   crossAxisAlignment: CrossAxisAlignment.start,
+                   children: [
+                     Text("John Doe", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                     Row(children: [Icon(Icons.meeting_room, size: 14, color: Colors.grey), SizedBox(width: 4), Text("Room 304 • ID #448392", style: TextStyle(color: Colors.grey))]),
+                     Text("DOB: Jan 12, 1980 (44y)", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                   ],
+                 ),
+               ],
+             ),
+             const SizedBox(height: 30),
+
+             // Safety Protocol
+             const _SectionHeader(title: "Safety Protocol", icon: Icons.security),
+             const SizedBox(height: 16),
+             _CheckItem(label: "All medications administered", val: isProtocol1, onChanged: (v) => setState(() => isProtocol1 = v!)),
+             _CheckItem(label: "Discharge papers signed", val: isProtocol2, onChanged: (v) => setState(() => isProtocol2 = v!)),
+             _CheckItem(label: "Patient education completed", val: isProtocol3, onChanged: (v) => setState(() => isProtocol3 = v!)),
+             _CheckItem(label: "Belongings collected", val: isProtocol4, onChanged: (v) => setState(() => isProtocol4 = v!)),
+             
+             const SizedBox(height: 30),
+             
+             // Medication Plan
+             const _SectionHeader(title: "Medication Plan", icon: Icons.medication_liquid),
+             const SizedBox(height: 16),
+             
+             Row(
+               mainAxisAlignment: MainAxisAlignment.spaceAround,
+               children: [
+                 _ActionIcon(icon: Icons.mobile_screen_share, label: "Send to\nApp"),
+                 _ActionIcon(icon: Icons.email, label: "Email\nPDF"),
+                 _ActionIcon(icon: Icons.print, label: "Print\nSummary"),
+               ],
+             ),
+
+             const SizedBox(height: 50),
+             
+             const Text("Discharge recorded by\nNurse Sarah Jenkins - 10:42 AM", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 12)),
+             const SizedBox(height: 20),
+             
+              SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: MedColors.nursePrimary,
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0
                 ),
-                SizedBox(width: 15),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      "John Doe",
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      "Room 304B • ID #948392",
-                      style: TextStyle(color: Colors.grey),
-                    ),
+                    Icon(Icons.check_circle, color: Colors.white),
+                    SizedBox(width: 8),
+                    Text("Complete Discharge", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                   ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 30),
-            const Text(
-              "Safety Protocol",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: MedColors.drPrimary,
               ),
             ),
-            const SizedBox(height: 15),
-            _CheckListItem(
-              label: "All medications administered",
-              isChecked: true,
-            ),
-            _CheckListItem(label: "Discharge papers signed", isChecked: true),
-            _CheckListItem(
-              label: "Patient education completed",
-              isChecked: true,
-            ),
-            _CheckListItem(label: "Belongings collected", isChecked: false),
-            const SizedBox(height: 30),
-            const Text(
-              "Medication Plan",
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: MedColors.drPrimary,
-              ),
-            ),
-            const SizedBox(height: 15),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _PlanAction(
-                  icon: Icons.send_to_mobile,
-                  label: "Send to Patient App",
-                ),
-                _PlanAction(icon: Icons.email_outlined, label: "Email PDF"),
-                _PlanAction(icon: Icons.print_outlined, label: "Print Summary"),
-              ],
-            ),
-            const SizedBox(height: 50),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00C853),
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 60),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              onPressed: () {},
-              child: const Text(
-                "Complete Discharge",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-              ),
-            ),
-            const Center(
-              child: TextButton(
-                onPressed: null,
-                child: Text(
-                  "Cancel Discharge",
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            ),
+             const SizedBox(height: 16),
+             TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel Discharge", style: TextStyle(color: Colors.grey)))
+
           ],
         ),
       ),
@@ -114,55 +104,69 @@ class DischargeScreen extends StatelessWidget {
   }
 }
 
-class _CheckListItem extends StatelessWidget {
-  final String label;
-  final bool isChecked;
-  const _CheckListItem({required this.label, required this.isChecked});
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final IconData icon;
+
+  const _SectionHeader({required this.title, required this.icon});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Icon(
-            isChecked ? Icons.check_circle : Icons.radio_button_unchecked,
-            color: isChecked ? MedColors.drPrimary : Colors.grey,
-          ),
-          const SizedBox(width: 15),
-          Text(label, style: const TextStyle(fontSize: 16)),
-        ],
+    return Row(
+      children: [
+        Icon(icon, color: MedColors.royalBlue, size: 20),
+        const SizedBox(width: 10),
+        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+      ],
+    );
+  }
+}
+
+class _CheckItem extends StatelessWidget {
+  final String label;
+  final bool val;
+  final ValueChanged<bool?> onChanged;
+
+  const _CheckItem({required this.label, required this.val, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: val ? Colors.blue.shade50 : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: val ? Colors.blue.shade100 : Colors.transparent)
+      ),
+      child: CheckboxListTile(
+        value: val,
+        onChanged: onChanged,
+        title: Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+        activeColor: MedColors.royalBlue,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+        checkboxShape: const CircleBorder(),
       ),
     );
   }
 }
 
-class _PlanAction extends StatelessWidget {
+class _ActionIcon extends StatelessWidget {
   final IconData icon;
   final String label;
-  const _PlanAction({required this.icon, required this.label});
+
+  const _ActionIcon({required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, color: MedColors.drPrimary),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: Colors.blue.shade50, shape: BoxShape.circle),
+          child: Icon(icon, color: MedColors.royalBlue),
         ),
-        const SizedBox(height: 5),
-        SizedBox(
-          width: 80,
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 10),
-          ),
-        ),
+        const SizedBox(height: 8),
+        Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
       ],
     );
   }
