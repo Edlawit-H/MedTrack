@@ -152,7 +152,7 @@ class _DoctorLoginState extends State<DoctorLogin> {
                       MedTextField(
                         controller: _emailController,
                         label: "Email",
-                        hint: "doctor@hospital.com",
+                        hint: "edlawit@gmail.com",
                         icon: Icons.email,
                       ),
                       const SizedBox(height: 20),

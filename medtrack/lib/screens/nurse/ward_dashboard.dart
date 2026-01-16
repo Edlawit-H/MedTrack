@@ -124,7 +124,8 @@ class _WardHomeState extends State<_WardHome> {
                       children: [
                         const CircleAvatar(radius: 18, backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=5')), // Placeholder Pic
                         const SizedBox(width: 10),
-                        Text("Nurse: $nurseName", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
+                        Text(nurseName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
+
                       ],
                     ),
                   ],

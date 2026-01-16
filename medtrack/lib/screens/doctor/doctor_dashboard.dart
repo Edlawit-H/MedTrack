@@ -93,6 +93,8 @@ class _DashboardHomeState extends State<_DashboardHome> {
   Future<void> _loadData() async {
     final profile = await _doctorService.getDoctorProfile();
     final patients = await _doctorService.getAssignedPatients();
+    final appointments = await _doctorService.getAppointments();
+    final prescriptionsCount = await _doctorService.getActivePrescriptionsCount();
 
     if (mounted) {
       setState(() {
@@ -100,10 +102,37 @@ class _DashboardHomeState extends State<_DashboardHome> {
           _doctorName = profile['full_name'] ?? "Doctor";
         }
         _patients = patients;
+        
+        // Count today's appointments
+        final now = DateTime.now();
+        final todayAppts = appointments.where((a) {
+          final date = DateTime.parse(a['scheduled_time']);
+          return date.year == now.year && date.month == now.month && date.day == now.day;
+        }).toList();
+        
+        _todayAppointmentCount = todayAppts.length;
+
+        // Find next upcoming appointment today
+        final futureTodayAppts = todayAppts.where((a) {
+             final date = DateTime.parse(a['scheduled_time']);
+             return date.isAfter(now);
+        }).toList();
+        
+        futureTodayAppts.sort((a, b) => a['scheduled_time'].compareTo(b['scheduled_time']));
+        _nextAppointment = futureTodayAppts.isNotEmpty ? futureTodayAppts.first : null;
+        
+        _activePrescriptionsCount = prescriptionsCount;
         _isLoading = false;
       });
     }
   }
+
+  int _todayAppointmentCount = 0;
+  int _activePrescriptionsCount = 0;
+  Map<String, dynamic>? _nextAppointment;
+
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -127,27 +156,25 @@ class _DashboardHomeState extends State<_DashboardHome> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                   Row(
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
                         "Dashboard",
                         style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                       ),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
-                        child: const Icon(Icons.notifications_none, color: Colors.white),
-                      )
+                      // Removed notification bell as requested
                     ],
                   ),
+
                   const SizedBox(height: 24),
-                  const Text("Good Morning,", style: TextStyle(color: Colors.white70, fontSize: 16)),
+                  const Text("Welcome,", style: TextStyle(color: Colors.white70, fontSize: 16)),
                   const SizedBox(height: 4),
                   Text(_doctorName, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
+
             Positioned(
               bottom: -25,
               left: 24,
@@ -186,18 +213,29 @@ class _DashboardHomeState extends State<_DashboardHome> {
                 children: [
                   Expanded(child: _StatCard(value: "${_patients.length}", label: "Total Patients", icon: Icons.people_outline, isSelected: false)),
                   const SizedBox(width: 12),
-                  const Expanded(child: _StatCard(value: "8", label: "Appointments", icon: Icons.calendar_today, isSelected: true)), // Blue card
+                  Expanded(child: _StatCard(value: "$_todayAppointmentCount", label: "Appointments", icon: Icons.calendar_today, isSelected: true)), // Dynamic count
                   const SizedBox(width: 12),
-                  const Expanded(child: _StatCard(value: "3", label: "Surgeries", icon: Icons.medical_services_outlined, isSelected: false)),
+                  Expanded(child: _StatCard(value: "$_activePrescriptionsCount", label: "Active Prescriptions", icon: Icons.medication_outlined, isSelected: false)),
                 ],
+
               ),
+
               const SizedBox(height: 30),
+
+              // Upcoming Appointment Card (The "Box" requested for real-time data)
+              if (_nextAppointment != null) ...[
+                const Text("Next Appointment", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: MedColors.textMain)),
+                const SizedBox(height: 12),
+                _UpcomingAppointmentCard(appointment: _nextAppointment!),
+                const SizedBox(height: 24),
+              ],
 
               // Your Patients Section
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text("Your Patients", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: MedColors.textMain)),
+
                   TextButton(
                     onPressed: () {}, // Navigate to Patients tab via logic if needed, or just view all
                     child: const Text("View All", style: TextStyle(color: MedColors.royalBlue)),
@@ -262,7 +300,105 @@ class _StatCard extends StatelessWidget {
   }
 }
 
+
+class _UpcomingAppointmentCard extends StatelessWidget {
+  final Map<String, dynamic> appointment;
+
+  const _UpcomingAppointmentCard({required this.appointment});
+
+  @override
+  Widget build(BuildContext context) {
+    final patientName = appointment['patients']?['full_name'] ?? 'Unknown Patient';
+    final time = DateTime.parse(appointment['scheduled_time']);
+    final timeStr = "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}";
+    final type = appointment['type'] ?? 'Regular Visit';
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [MedColors.royalBlue, Color(0xFF5D78FF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: MedColors.royalBlue.withValues(alpha: 0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          )
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.calendar_today, color: Colors.white, size: 24),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      patientName,
+                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      type,
+                      style: const TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  timeStr,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "Prepare for consultation",
+                style: TextStyle(color: Colors.white, fontSize: 13),
+              ),
+              TextButton(
+                onPressed: () {},
+                style: TextButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                ),
+                child: const Text("View Details", style: TextStyle(color: MedColors.royalBlue, fontWeight: FontWeight.bold)),
+              ),
+
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PatientListItem extends StatelessWidget {
+
   final String name;
   final String id;
   final String tag;

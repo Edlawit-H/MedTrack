@@ -1,74 +1,123 @@
 import 'package:flutter/material.dart';
-import '../../core/app_colors.dart'; // Two levels up to core
+import '../../core/app_colors.dart';
+import '../../services/doctor_service.dart';
 
-class DoctorProfile extends StatelessWidget {
+
+class DoctorProfile extends StatefulWidget {
   const DoctorProfile({super.key});
 
   @override
+  State<DoctorProfile> createState() => _DoctorProfileState();
+}
+
+class _DoctorProfileState extends State<DoctorProfile> {
+  final DoctorService _doctorService = DoctorService();
+  Map<String, dynamic>? _profile;
+  List<Map<String, dynamic>>? _patients;
+  bool _isLoading = true;
+
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final profile = await _doctorService.getDoctorProfile();
+    final patients = await _doctorService.getAssignedPatients();
+    if (mounted) {
+      setState(() {
+        _profile = profile;
+        _patients = patients;
+        _isLoading = false;
+      });
+    }
+  }
+
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    final String name = _profile?['full_name'] ?? "Doctor";
+    final String specialty = _profile?['specialty'] ?? "Specialist";
+    final String email = _profile?['email'] ?? "No email provided";
+    final String workDays = _profile?['work_days'] ?? "Mon - Fri";
+    final String workHours = _profile?['work_hours'] ?? "08:00 - 16:00";
+    final String onCall = _profile?['on_call_days'] ?? "N/A";
+
     return Scaffold(
-      backgroundColor: MedColors.drBg,
+      backgroundColor: MedColors.greyBg,
       appBar: AppBar(
-        title: const Text("My Profile"),
+        title: const Text("My Profile", style: TextStyle(color: Colors.white)),
         centerTitle: true,
+        backgroundColor: MedColors.drPrimary,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            const CircleAvatar(
+            CircleAvatar(
               radius: 50,
-              backgroundImage: NetworkImage('https://via.placeholder.com/150'),
+              backgroundColor: MedColors.drPrimary.withValues(alpha: 0.1),
+              child: Text(
+                name.isNotEmpty ? name[0] : "D",
+                style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: MedColors.drPrimary),
+              ),
             ),
             const SizedBox(height: 15),
-            const Text(
-              "Dr. Sarah Johnson",
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            Text(
+              name,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
-            const Text(
-              "Cardiologist",
-              style: TextStyle(
+            Text(
+              specialty,
+              style: const TextStyle(
                 color: MedColors.drPrimary,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const Text(
-              "St. Mary's General Hospital",
+              "Dr. Edlawit Medical Center", // Updated to fit persona
               style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 25),
-            const Row(
+            Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _ProfileStat(label: "Years Exp.", value: "15"),
-                _ProfileStat(label: "Patients", value: "1.2k"),
-                _ProfileStat(label: "Rating", value: "4.9 ★"),
+                _ProfileStat(label: "Patients", value: "${_patients?.length ?? 0}"),
+                const _ProfileStat(label: "Rating", value: "4.8 ★"),
               ],
             ),
+
             const SizedBox(height: 30),
             _buildInfoSection("CONTACT INFORMATION", [
-              const _InfoTile(
+              _InfoTile(
                 icon: Icons.email_outlined,
                 label: "Email Address",
-                value: "sarah.johnson@stmarys.med",
+                value: email,
               ),
               const _InfoTile(
-                icon: Icons.phone_outlined,
-                label: "Phone Number",
-                value: "+1 (555) 012-3456",
+                icon: Icons.business_outlined,
+                label: "Department",
+                value: "Cardiology Unit",
               ),
             ]),
             const SizedBox(height: 20),
             _buildInfoSection("WORK SCHEDULE", [
-              const _InfoTile(
+              _InfoTile(
                 icon: Icons.calendar_today_outlined,
-                label: "Mon - Fri",
-                value: "08:00 - 16:00",
+                label: workDays,
+                value: workHours,
               ),
-              const _InfoTile(
+              _InfoTile(
                 icon: Icons.access_time_outlined,
-                label: "On-Call",
-                value: "Thursdays",
+                label: "On-Call Days",
+                value: onCall,
               ),
             ]),
             const SizedBox(height: 30),
@@ -103,6 +152,9 @@ class DoctorProfile extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(15),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 5))
+            ]
           ),
           child: Column(children: children),
         ),
@@ -110,6 +162,7 @@ class DoctorProfile extends StatelessWidget {
     );
   }
 }
+
 
 class _ProfileStat extends StatelessWidget {
   final String label, value;

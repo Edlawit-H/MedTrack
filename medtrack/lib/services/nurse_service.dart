@@ -3,6 +3,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class NurseService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
+  User? getCurrentUser() => _supabase.auth.currentUser;
+
+
   // Fetch the current nurse's profile details
   Future<Map<String, dynamic>?> getNurseProfile() async {
     final user = _supabase.auth.currentUser;
@@ -18,10 +21,11 @@ class NurseService {
       return {
         'full_name': data['full_name'],
         'email': data['email'],
-        'ward_id': data['nurses']?['ward_id'] ?? 'Unknown',
+        'ward_id': (data['nurses']?['ward_id'] ?? 'Unknown').toString().trim(),
         'department': data['nurses']?['department'] ?? 'General',
         'shift': data['nurses']?['shift'] ?? 'Day',
       };
+
     } catch (e) {
       print('Error fetching nurse profile: $e');
       return null;
@@ -37,8 +41,9 @@ class NurseService {
       final data = await _supabase
           .from('patients')
           .select()
-          .eq('ward_id', nurse['ward_id'])
+          .ilike('ward_id', nurse['ward_id'])
           .eq('stay_type', 'inpatient')
+
           .order('room_number', ascending: true);
       
       return List<Map<String, dynamic>>.from(data);
@@ -54,20 +59,25 @@ class NurseService {
     if (nurse == null) return [];
 
     try {
+      final today = DateTime.now();
+      final startOfToday = DateTime(today.year, today.month, today.day).toIso8601String();
+
       final data = await _supabase
           .from('prescriptions')
-          .select('*, patients!inner(full_name, room_number, ward_id, stay_type), medications(name, form)')
+          .select('*, patients!inner(full_name, room_number, ward_id, stay_type), medications(name, form), medication_logs(status, administered_at)')
           .eq('status', 'active')
-          .eq('patients.ward_id', nurse['ward_id'])
+          .ilike('patients.ward_id', nurse['ward_id'])
           .eq('patients.stay_type', 'inpatient')
           .order('created_at', ascending: false);
       
       return List<Map<String, dynamic>>.from(data);
+
     } catch (e) {
       print('Error fetching ward medications: $e');
       return [];
     }
   }
+
 
   // New: Calculate dashboard statistics (Attended, Due, Done)
   Future<Map<String, int>> getWardStats() async {
@@ -83,26 +93,27 @@ class NurseService {
           .from('prescriptions')
           .select('id, patients!inner(ward_id, stay_type)')
           .eq('status', 'active')
-          .eq('patients.ward_id', nurse['ward_id'])
+          .ilike('patients.ward_id', nurse['ward_id'])
           .eq('patients.stay_type', 'inpatient');
 
       // 2. Meds given today for THIS ward's inpatients
       final logs = await _supabase
           .from('medication_logs')
-          .select('prescription_id, prescriptions!inner(id, patient_id, patients!inner(ward_id, stay_type))')
-          .eq('status', 'given')
+          .select('id, status, prescription_id, prescriptions!inner(id, patient_id, patients!inner(ward_id, stay_type))')
           .gte('administered_at', startOfToday)
-          .eq('prescriptions.patients.ward_id', nurse['ward_id'])
+          .ilike('prescriptions.patients.ward_id', nurse['ward_id'])
           .eq('prescriptions.patients.stay_type', 'inpatient');
 
-      final medsDone = (logs as List).map((l) => l['prescription_id']).toSet();
+      final medsDone = (logs as List).where((l) => l['status'] == 'taken' || l['status'] == 'given').map((l) => l['prescription_id']).toSet();
+      final medsMissed = (logs as List).where((l) => l['status'] == 'missed').map((l) => l['prescription_id']).toSet();
       final patientsAttended = (logs as List).map((l) => (l['prescriptions'] as Map)['patient_id']).toSet();
 
       return {
-        'due': prescriptions.length - medsDone.length,
+        'due': prescriptions.length - medsDone.length - medsMissed.length,
         'done': medsDone.length,
         'attended': patientsAttended.length,
       };
+
     } catch (e) {
       print('Error calculating ward stats: $e');
       return {'due': 0, 'done': 0, 'attended': 0};

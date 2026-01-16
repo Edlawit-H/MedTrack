@@ -25,13 +25,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadProfile() async {
     final data = await _doctorService.getDoctorProfile();
+    final patients = await _doctorService.getAssignedPatients();
     if (mounted) {
       setState(() {
         _profile = data;
+        if (_profile != null) {
+          _profile!['patients'] = patients;
+        }
         _isLoading = false;
       });
     }
   }
+
 
   Future<void> _handleLogout() async {
      await _authService.signOut();
@@ -74,17 +79,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const Text("MedTrack Hospital", style: TextStyle(color: MedColors.textSecondary, fontSize: 13)),
             const SizedBox(height: 30),
             
-            // Stats Row (Mock data for stats still, as we don't have historical data)
-            const Row(
+            // Stats Row
+            Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _ProfileStat(value: "5+", label: "YEARS EXP."),
-                SizedBox(height: 40, child: VerticalDivider()),
-                _ProfileStat(value: "2", label: "PATIENTS"), // We could fetch this count
-                SizedBox(height: 40, child: VerticalDivider()),
-                _ProfileStat(value: "5.0", label: "RATING", isRating: true),
+                const _ProfileStat(value: "8+", label: "YEARS EXP."),
+                const SizedBox(height: 40, child: VerticalDivider()),
+                _ProfileStat(value: "${_profile?['patients']?.length ?? '24'}", label: "PATIENTS"),
+                const SizedBox(height: 40, child: VerticalDivider()),
+                const _ProfileStat(value: "5.0", label: "RATING", isRating: true),
               ],
             ),
+
             const SizedBox(height: 40),
 
             // Contact Info
@@ -99,13 +105,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))
                 ]
               ),
-              child: const Column(
+              child: Column(
                 children: [
-                   _ContactRow(icon: Icons.email_outlined, label: "Email Address", value: "doctor@test.com"), // Could fetch email too
-                   Divider(height: 30),
-                   _ContactRow(icon: Icons.phone_outlined, label: "Phone Number", value: "+1 (555) 012-3456"),
+                   _ContactRow(icon: Icons.email_outlined, label: "Email Address", value: _profile?['email'] ?? "edlawit@gmail.com"),
+                   const Divider(height: 30),
+                   const _ContactRow(icon: Icons.phone_outlined, label: "Phone Number", value: "+251 911 234 567"),
                 ],
               ),
+
             ),
             
              // Work Schedule
@@ -120,13 +127,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))
                 ]
               ),
-              child: const Column(
+              child: Column(
                 children: [
-                   _ContactRow(icon: Icons.calendar_today_outlined, label: "Mon - Fri", value: "08:00 - 16:00"),
-                   Divider(height: 30),
-                   _ContactRow(icon: Icons.circle, iconColor: Colors.green, label: "On-Call", value: "Thursdays"),
+                   _ContactRow(
+                     icon: Icons.calendar_today_outlined, 
+                     label: _profile?['work_days'] ?? "Mon - Fri", 
+                     value: _profile?['work_hours'] ?? "08:00 - 16:00"
+                   ),
+                   const Divider(height: 30),
+                   _ContactRow(
+                      icon: Icons.circle, 
+                      iconColor: Colors.green, 
+                      label: "On-Call Days", 
+                      value: _profile?['on_call_days'] ?? "Thursdays"
+                    ),
                 ],
               ),
+
             ),
 
               const SizedBox(height: 20),

@@ -11,20 +11,25 @@ class DoctorService {
     try {
       final data = await _supabase
           .from('profiles')
-          .select('full_name, doctors(specialty)')
+          .select('full_name, email, doctors(specialty, work_days, work_hours, on_call_days)')
           .eq('id', user.id)
           .single();
       
       // Flatten the response for easier UI usage
       return {
         'full_name': data['full_name'],
+        'email': data['email'],
         'specialty': data['doctors']?['specialty'] ?? 'General',
+        'work_days': data['doctors']?['work_days'] ?? 'Mon - Fri',
+        'work_hours': data['doctors']?['work_hours'] ?? '08:00 - 16:00',
+        'on_call_days': data['doctors']?['on_call_days'] ?? 'Thursdays',
       };
     } catch (e) {
       print('Error fetching doctor profile: $e');
       return null;
     }
   }
+
 
   // Fetch patients assigned to this doctor
   Future<List<Map<String, dynamic>>> getAssignedPatients() async {
@@ -234,4 +239,24 @@ class DoctorService {
       return 'Error creating appointment: $e';
     }
   }
+
+  // Fetch active prescriptions count for this doctor's patients
+  Future<int> getActivePrescriptionsCount() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return 0;
+
+    try {
+      final data = await _supabase
+          .from('prescriptions')
+          .select('id')
+          .eq('doctor_id', user.id)
+          .eq('status', 'active');
+      
+      return (data as List).length;
+    } catch (e) {
+      print('Error fetching active prescriptions count: $e');
+      return 0;
+    }
+  }
 }
+

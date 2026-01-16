@@ -85,8 +85,9 @@ class PatientService {
           .from('appointments')
           .select('*, doctors(specialty, hospital_id, profiles(full_name))') 
           .eq('patient_id', patient['id'])
-          .gte('scheduled_time', DateTime.now().toIso8601String())
+          .gte('scheduled_time', DateTime.now().subtract(const Duration(hours: 1)).toIso8601String())
           .order('scheduled_time', ascending: true);
+
       
       return List<Map<String, dynamic>>.from(data);
     } catch (e) {
@@ -121,4 +122,29 @@ class PatientService {
       return [];
     }
   }
+
+  // Log a medication action (taken/missed)
+  Future<bool> logMedicationAction({
+    required String prescriptionId,
+    required String status, // 'taken' or 'missed'
+    String? notes,
+  }) async {
+    try {
+      final activeId = _getActiveId();
+      if (activeId == null) return false;
+
+      await _supabase.from('medication_logs').insert({
+        'prescription_id': prescriptionId,
+        'status': status, // 'taken' or 'missed'
+        'notes': notes ?? 'Status updated by patient',
+        'administered_at': DateTime.now().toIso8601String(),
+        'scheduled_time': DateTime.now().toIso8601String(), // For MVP, log at current time
+      });
+      return true;
+    } catch (e) {
+      print('Error logging medication action: $e');
+      return false;
+    }
+  }
 }
+

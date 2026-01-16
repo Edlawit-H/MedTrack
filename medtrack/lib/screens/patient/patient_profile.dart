@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../../core/app_colors.dart';
 import '../../services/patient_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/notification_service.dart';
 import 'package:intl/intl.dart';
+
 
 
 class PatientProfile extends StatefulWidget {
@@ -89,9 +91,10 @@ class _PatientProfileState extends State<PatientProfile> {
             const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _TagP(label: "Active Patient", color: Colors.green),
+                _TagP(label: "Status: Under Care", color: Colors.green),
               ],
             ),
+
             
             const SizedBox(height: 24),
             Row(
@@ -161,14 +164,33 @@ class _PatientProfileState extends State<PatientProfile> {
              const SwitchListTile(value: true, onChanged: null, title: Text("Push Notifications", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)), subtitle: Text("Receive alerts on lock screen", style: TextStyle(fontSize: 11))),
              
              const SizedBox(height: 30),
-             TextButton.icon(
-                onPressed: () async {
-                   await _authService.signOut();
-                   if (mounted) Navigator.pushReplacementNamed(context, '/'); 
-                }, 
-               icon: const Icon(Icons.logout, color: Colors.black), 
-               label: const Text("Log Out", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold))
-             )
+              TextButton.icon(
+                 onPressed: () async {
+                    await _authService.signOut();
+                    if (mounted) Navigator.pushReplacementNamed(context, '/'); 
+                 }, 
+                icon: const Icon(Icons.logout, color: Colors.black), 
+                label: const Text("Log Out", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold))
+              ),
+              const SizedBox(height: 20),
+               OutlinedButton.icon(
+                 onPressed: () {
+                   NotificationService().showInstantAlert(
+                     context, 
+                     title: "Medication Reminder", 
+                     body: "Time to take your Aspirin (81mg)"
+                   );
+                 },
+                 icon: const Icon(Icons.notifications_active_outlined, color: MedColors.patPrimary),
+                 label: const Text("Test Banner Alert", style: TextStyle(color: MedColors.patPrimary, fontWeight: FontWeight.bold)),
+                 style: OutlinedButton.styleFrom(
+                   minimumSize: const Size(double.infinity, 50),
+                   side: const BorderSide(color: MedColors.patPrimary),
+                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                 ),
+               ),
+
+
 
           ],
         ),

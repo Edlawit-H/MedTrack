@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../core/app_colors.dart';
 import '../../services/nurse_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../services/notification_service.dart';
+
 
 class NurseProfile extends StatefulWidget {
   final bool showBackButton;
@@ -137,11 +139,27 @@ class _NurseProfileState extends State<NurseProfile> {
                    
                    Center(
                      child: TextButton.icon(
+                       onPressed: () {
+                         NotificationService().showInstantAlert(
+                           context, 
+                           title: "Shift Update", 
+                           body: "Solomon (A-102) is due for Metoprolol (25mg) immediately."
+                         );
+                       },
+                       icon: const Icon(Icons.notifications_active, color: MedColors.nursePrimary),
+                       label: const Text("Test Banner Alert", style: TextStyle(color: MedColors.nursePrimary, fontWeight: FontWeight.bold)),
+                     ),
+                   ),
+
+                   const SizedBox(height: 10),
+                   Center(
+                     child: TextButton.icon(
                        onPressed: _signOut, 
                        icon: const Icon(Icons.logout, color: Colors.red),
                        label: const Text("Log Out", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
                      ),
                    )
+
                 ],
               ),
             )

@@ -128,14 +128,8 @@ class _NurseLoginState extends State<NurseLogin> {
                     icon: Icons.lock_outline
                   ),
                   
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {}, 
-                      child: const Text("Forgot Password?", style: TextStyle(color: MedColors.nursePrimary, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
                   const SizedBox(height: 10),
+
                   
                   ElevatedButton(
                     onPressed: _isLoading ? null : _handleLogin,
@@ -154,14 +148,9 @@ class _NurseLoginState extends State<NurseLogin> {
                   
                    const SizedBox(height: 40),
                    const Center(
-                     child: Column(
-                       children: [
-                          Icon(Icons.local_hospital, color: Colors.grey, size: 24),
-                          SizedBox(height: 8),
-                          Text("ST. JUDE MEDICAL CENTER", style: TextStyle(color: Colors.grey, fontSize: 10, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
-                       ],
-                     ),
+                     child: Icon(Icons.local_hospital, color: Colors.grey, size: 24),
                    )
+
                 ],
               ),
             ),

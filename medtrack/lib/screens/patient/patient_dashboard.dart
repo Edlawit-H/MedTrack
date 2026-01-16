@@ -7,6 +7,8 @@ import 'medication_reminder.dart';
 import '../../services/patient_service.dart';
 import '../../services/notification_service.dart';
 import 'package:intl/intl.dart';
+import 'dart:async';
+
 
 class PatientDashboard extends StatefulWidget {
   const PatientDashboard({super.key});
@@ -74,12 +76,57 @@ class _PatientHomeState extends State<_PatientHome> {
   Map<String, dynamic>? _profile;
   List<Map<String, dynamic>> _prescriptions = [];
   bool _isLoading = true;
+  Timer? _medicationCheckTimer;
+  final Set<String> _notifiedMeds = {}; // Prevent double-notifying in same minute
+
 
   @override
   void initState() {
     super.initState();
     _initializeApp();
+    _startMedicationTimer();
   }
+
+  void _startMedicationTimer() {
+    _medicationCheckTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
+      if (mounted) _checkReminders();
+    });
+  }
+
+  void _checkReminders() {
+    final now = DateTime.now();
+    final currentTimeStr = DateFormat('HH:mm').format(now);
+
+    for (var med in _prescriptions) {
+      final name = med['medications']?['name'] ?? 'Medication';
+      final freq = (med['frequency'] ?? '').toString().toLowerCase();
+      final medKey = "${med['id']}_$currentTimeStr";
+
+      if (_notifiedMeds.contains(medKey)) continue;
+
+      // Simple time matching logic for demo
+      bool isMatch = false;
+      if (freq.contains('morning') && currentTimeStr == "09:00") isMatch = true;
+      if (freq.contains('evening') && currentTimeStr == "21:00") isMatch = true;
+      if (currentTimeStr == "09:00") isMatch = true; // Default match for 9AM
+
+      if (isMatch) {
+         _notificationService.showInstantAlert(
+           context, 
+           title: "Medication Reminder", 
+           body: "It's time to take your $name"
+         );
+         _notifiedMeds.add(medKey);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _medicationCheckTimer?.cancel();
+    super.dispose();
+  }
+
 
   Future<void> _initializeApp() async {
     await _initNotifications();
@@ -121,26 +168,49 @@ class _PatientHomeState extends State<_PatientHome> {
     for (var med in meds) {
       final name = med['medications']?['name'] ?? 'Medication';
       final freq = (med['frequency'] ?? '').toString().toLowerCase();
-      final instructions = med['instructions'] ?? 'Time for your meds';
-      final medId = med['id'].hashCode; // Simple unique ID
-      
-      // Simple parsing logic for MVP
-      if (freq.contains('twice') || freq.contains('12 hours')) {
-        // 9 AM & 9 PM
-        await _notificationService.scheduleDailyNotification(id: medId, title: 'Time for $name', body: instructions, hour: 9, minute: 0);
-        await _notificationService.scheduleDailyNotification(id: medId + 1, title: 'Time for $name', body: instructions, hour: 21, minute: 0);
-      } else if (freq.contains('8 hours')) {
-        // 3 times: 9 AM, 5 PM, 1 AM
-        await _notificationService.scheduleDailyNotification(id: medId, title: 'Time for $name', body: instructions, hour: 9, minute: 0);
-        await _notificationService.scheduleDailyNotification(id: medId + 1, title: 'Time for $name', body: instructions, hour: 17, minute: 0);
-        await _notificationService.scheduleDailyNotification(id: medId + 2, title: 'Time for $name', body: instructions, hour: 1, minute: 0); // Next day early
+      final instructions = med['instructions'] ?? 'Time to take your $name';
+      final medId = med['id'].hashCode; // Unique base ID for this medication
+
+      List<TimeOfDay> schedule = [];
+
+      // Logic for parsing frequencies
+      if (freq.contains('twice') || freq.contains('bid') || freq.contains('12 hours')) {
+        schedule = [const TimeOfDay(hour: 9, minute: 0), const TimeOfDay(hour: 21, minute: 0)];
+      } else if (freq.contains('thrice') || freq.contains('tid') || freq.contains('8 hours')) {
+        schedule = [
+          const TimeOfDay(hour: 9, minute: 0), 
+          const TimeOfDay(hour: 14, minute: 0), 
+          const TimeOfDay(hour: 21, minute: 0)
+        ];
+      } else if (freq.contains('four') || freq.contains('qid') || freq.contains('6 hours')) {
+        schedule = [
+          const TimeOfDay(hour: 8, minute: 0), 
+          const TimeOfDay(hour: 12, minute: 0), 
+          const TimeOfDay(hour: 16, minute: 0), 
+          const TimeOfDay(hour: 20, minute: 0)
+        ];
+      } else if (freq.contains('morning') && freq.contains('evening')) {
+        schedule = [const TimeOfDay(hour: 8, minute: 30), const TimeOfDay(hour: 20, minute: 30)];
+      } else if (freq.contains('morning')) {
+        schedule = [const TimeOfDay(hour: 8, minute: 30)];
+      } else if (freq.contains('evening') || freq.contains('night')) {
+        schedule = [const TimeOfDay(hour: 20, minute: 30)];
       } else {
         // Default: Once daily at 9 AM
-        await _notificationService.scheduleDailyNotification(id: medId, title: 'Time for $name', body: instructions, hour: 9, minute: 0);
+        schedule = [const TimeOfDay(hour: 9, minute: 0)];
       }
+
+      // Schedule all times for this med
+      await _notificationService.scheduleMultipleDailyNotifications(
+        baseId: medId,
+        title: 'Heads up: Time for $name',
+        body: instructions,
+        times: schedule,
+      );
     }
-    print("DEBUG: Scheduled reminders for ${meds.length} medications.");
+    print("DEBUG: Scheduled reminders for ${meds.length} medications with a total of ${meds.fold(0, (sum, m) => sum + 1)} entries.");
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -181,9 +251,12 @@ class _PatientHomeState extends State<_PatientHome> {
             children: [
               Expanded(
                 child: GestureDetector(
-                  onTap: () => Navigator.pushNamed(context, '/patient_appointments'), // This might fail if route not clean, but tabs work
-                  // Ideally switch tab
+                  onTap: () {
+                    // Switch to the appointments tab or navigate
+                    Navigator.pushNamed(context, '/patient_appointments');
+                  },
                   child: Container(
+
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
                     child: const Column(
@@ -199,7 +272,10 @@ class _PatientHomeState extends State<_PatientHome> {
               const SizedBox(width: 16),
               Expanded(
                 child: GestureDetector(
-                  onTap: () {}, // Tab Profile handle 
+                  onTap: () {
+                    // Logic to switch tab would be better, but for now we can navigate
+                    Navigator.pushNamed(context, '/patient_profile');
+                  },
                    child: Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
@@ -213,6 +289,7 @@ class _PatientHomeState extends State<_PatientHome> {
                   ),
                 ),
               )
+
             ],
           ),
            const SizedBox(height: 30),
