@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:intl/intl.dart';
 import '../../core/app_colors.dart';
+import '../../services/doctor_service.dart';
+import 'add_appointment_modal.dart';
 
 class DoctorSchedule extends StatefulWidget {
   const DoctorSchedule({super.key});
@@ -10,12 +13,55 @@ class DoctorSchedule extends StatefulWidget {
 }
 
 class _DoctorScheduleState extends State<DoctorSchedule> {
+  final _doctorService = DoctorService();
+  
   CalendarFormat _calendarFormat = CalendarFormat.week;
   DateTime _focusedDay = DateTime.now();
-  DateTime? _selectedDay;
+  DateTime _selectedDay = DateTime.now();
+  
+  List<Map<String, dynamic>> _allAppointments = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAppointments();
+  }
+
+  Future<void> _loadAppointments() async {
+    final data = await _doctorService.getAppointments();
+    if (mounted) {
+      setState(() {
+        _allAppointments = data;
+        _isLoading = false;
+      });
+    }
+  }
+
+  List<Map<String, dynamic>> _getAppointmentsForDay(DateTime day) {
+    return _allAppointments.where((appt) {
+      final apptDate = DateTime.parse(appt['scheduled_time']);
+      return isSameDay(apptDate, day);
+    }).toList();
+  }
+
+  void _showAddAppointment() async {
+    final result = await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const AddAppointmentModal(),
+    );
+
+    if (result == true) {
+      _loadAppointments(); // Refresh list
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final daysAppointments = _getAppointmentsForDay(_selectedDay);
+
     return Scaffold(
       backgroundColor: MedColors.greyBg,
       appBar: AppBar(
@@ -64,58 +110,45 @@ class _DoctorScheduleState extends State<DoctorSchedule> {
                   shape: BoxShape.circle,
                 ),
               ),
-              headerStyle: HeaderStyle(
+              headerStyle: const HeaderStyle(
                 formatButtonVisible: false,
                 titleCentered: true,
-                titleTextStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                titleTextStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 decoration: BoxDecoration(color: Colors.white), 
               ),
             ),
           ),
           
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(20),
-              children: const [
-                Text("Today's Appointments", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: MedColors.textMain)),
-                SizedBox(height: 16),
-                _TimelineTile(
-                  time: "09:00 AM",
-                  name: "John Doe",
-                  type: "Follow-up Visit",
-                  color: Colors.blue,
-                  duration: "30 min",
-                ),
-                _TimelineTile(
-                  time: "10:30 AM",
-                  name: "Jane Smith",
-                  type: "Initial Consultation",
-                  color: Colors.green,
-                  isNew: true,
-                  duration: "45 min",
-                ),
-                _TimelineTile(
-                  time: "01:00 PM",
-                  name: "Michael Brown",
-                  type: "Routine Check-up",
-                  color: Colors.orange,
-                  duration: "15 min",
-                ),
-                 _TimelineTile(
-                  time: "02:30 PM",
-                  name: "Sarah Jenkins",
-                  type: "Emergency Review",
-                  color: Colors.red,
-                  duration: "20 min",
-                ),
-              ],
-            ),
+            child: _isLoading 
+              ? const Center(child: CircularProgressIndicator())
+              : daysAppointments.isEmpty 
+                ? const Center(child: Text("No appointments for this day."))
+                : ListView.builder(
+                    padding: const EdgeInsets.all(20),
+                    itemCount: daysAppointments.length,
+                    itemBuilder: (context, index) {
+                      final appt = daysAppointments[index];
+                      final date = DateTime.parse(appt['scheduled_time']);
+                      final timeStr = DateFormat('hh:mm a').format(date);
+                      final patientName = appt['patients']?['full_name'] ?? 'Unknown';
+                      
+                      return _TimelineTile(
+                        time: timeStr,
+                        name: patientName,
+                        type: appt['status']?.toUpperCase() ?? 'SCHEDULED', // Using status as type/tag for now
+                        color: Colors.blue, // Could vary color by status
+                        duration: "30 min",
+                        notes: appt['notes'],
+                      );
+                    },
+                  ),
           ),
         ],
       ),
        floatingActionButton: FloatingActionButton(
         backgroundColor: MedColors.drPrimary,
-        onPressed: () {},
+        onPressed: _showAddAppointment,
         child: const Icon(Icons.add, color: Colors.white),
       ),
     );
@@ -124,15 +157,16 @@ class _DoctorScheduleState extends State<DoctorSchedule> {
 
 class _TimelineTile extends StatelessWidget {
   final String time, name, type, duration;
+  final String? notes;
   final Color color;
-  final bool isNew;
+  
   const _TimelineTile({
     required this.time,
     required this.name,
     required this.type,
     required this.color,
     this.duration = "30 min",
-    this.isNew = false,
+    this.notes,
   });
 
   @override
@@ -178,26 +212,25 @@ class _TimelineTile extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      if (isNew)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                          child: const Text("NEW", style: TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold)),
-                        )
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                        child: Text(type, style: const TextStyle(color: Colors.blue, fontSize: 10, fontWeight: FontWeight.bold)),
+                      )
                     ],
                   ),
                    const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.medical_services_outlined, size: 14, color: Colors.grey),
-                      const SizedBox(width: 4),
-                      Text(type, style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                      const SizedBox(width: 12),
-                       Icon(Icons.access_time, size: 14, color: Colors.grey),
+                       const Icon(Icons.access_time, size: 14, color: Colors.grey),
                       const SizedBox(width: 4),
                       Text(duration, style: const TextStyle(color: Colors.grey, fontSize: 13)),
                     ],
-                  )
+                  ),
+                  if (notes != null && notes!.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(notes!, style: const TextStyle(color: Colors.grey, fontStyle: FontStyle.italic, fontSize: 12)),
+                  ]
                 ],
               ),
             ),

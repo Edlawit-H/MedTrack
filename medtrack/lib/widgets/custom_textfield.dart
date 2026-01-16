@@ -3,6 +3,7 @@ import '../core/app_colors.dart';
 
 class CustomTextField extends StatelessWidget {
   final String label;
+  final String? hint;
   final IconData? prefixIcon;
   final bool obscureText;
   final TextInputType? keyboardType;
@@ -11,6 +12,7 @@ class CustomTextField extends StatelessWidget {
   const CustomTextField({
     super.key,
     required this.label,
+    this.hint,
     this.prefixIcon,
     this.obscureText = false,
     this.keyboardType,
@@ -38,6 +40,7 @@ class CustomTextField extends StatelessWidget {
         keyboardType: keyboardType,
         decoration: InputDecoration(
           labelText: label,
+          hintText: hint,
           labelStyle: const TextStyle(color: MedColors.textSecondary),
           prefixIcon: prefixIcon != null 
               ? Icon(prefixIcon, color: MedColors.textSecondary)

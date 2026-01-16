@@ -1,9 +1,45 @@
 import 'package:flutter/material.dart';
 import '../../core/app_colors.dart';
-import '../../widgets/shared_widgets.dart';
+import '../../services/auth_service.dart';
 
-class PatientLogin extends StatelessWidget {
+
+class PatientLogin extends StatefulWidget {
   const PatientLogin({super.key});
+
+  @override
+  State<PatientLogin> createState() => _PatientLoginState();
+}
+
+class _PatientLoginState extends State<PatientLogin> {
+  final _passwordController = TextEditingController();
+  final _authService = AuthService();
+  bool _isLoading = false;
+
+  Future<void> _handleLogin() async {
+    setState(() => _isLoading = true);
+    
+    final mrn = _passwordController.text.trim();
+
+    if (mrn.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter your Admission Code')));
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    // New Streamlined Login: MRN Only
+    final error = await _authService.signInWithMRN(mrn);
+    
+    if (error == null) {
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/patient_dashboard');
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error), backgroundColor: Colors.red));
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -12,9 +48,8 @@ class PatientLogin extends StatelessWidget {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Illustration Area
             Container(
-              height: 400,
+              height: 300,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                    begin: Alignment.topCenter,
@@ -22,30 +57,8 @@ class PatientLogin extends StatelessWidget {
                    colors: [Colors.green.shade50, Colors.white]
                 )
               ),
-              child: Stack(
-                children: [
-                   Align(
-                     alignment: Alignment.topRight,
-                     child: Padding(
-                       padding: const EdgeInsets.only(top: 60, right: 20),
-                       child: Container(
-                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                         decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(20)),
-                         child: const Row(
-                           mainAxisSize: MainAxisSize.min,
-                           children: [
-                             Icon(Icons.health_and_safety, color: Colors.white, size: 16),
-                             SizedBox(width: 6),
-                             Text("MEDICARE+", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)) 
-                           ],
-                         ),
-                       ),
-                     ),
-                   ),
-                   Center(
-                     child: Icon(Icons.family_restroom, size: 200, color: Colors.green.shade200), // Placeholder for illustration
-                   )
-                ],
+              child: Center(
+                 child: Icon(Icons.health_and_safety, size: 100, color: Colors.green.shade300),
               ),
             ),
             
@@ -54,61 +67,46 @@ class PatientLogin extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("Start Your Journey", style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: MedColors.textMain)),
+                  const Text("Patient Access", style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: MedColors.textMain)),
                   const SizedBox(height: 10),
-                  const Text("Enter the 6-digit code sent to your email when your doctor created your account.", style: TextStyle(color: MedColors.textSecondary, height: 1.5)),
-                  const SizedBox(height: 30),
+                  const Text("Enter your unique code to access your health portal.", style: TextStyle(color: MedColors.textSecondary)),
+                  const SizedBox(height: 40),
                   
-                  const Text("Activation Code", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  const SizedBox(height: 8),
-                  const MedTextField(label: "", hint: "e.g. 829401", icon: Icons.vpn_key_outlined),
-                  
-                  const SizedBox(height: 10),
-                  const Row(
-                    children: [
-                      Icon(Icons.info_outline, size: 14, color: Colors.green),
-                      SizedBox(width: 6),
-                      Text("Check your spam folder if you don't see the email.", style: TextStyle(fontSize: 11, color: Colors.green)) 
-                    ],
+                  TextField(
+                    controller: _passwordController,
+                    obscureText: false, 
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2),
+                    decoration: InputDecoration(
+                      labelText: "Admission Code (MRN)",
+                      hintText: "e.g. MRN-59177",
+                      prefixIcon: const Icon(Icons.vpn_key_outlined),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: MedColors.patPrimary, width: 2),
+                      ),
+                    ),
                   ),
-                  
+
                   const SizedBox(height: 40),
                   
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () => Navigator.pushReplacementNamed(context, '/patient_dashboard'),
+                      onPressed: _isLoading ? null : _handleLogin,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: MedColors.patPrimary,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                        elevation: 5,
-                        shadowColor: Colors.green.withOpacity(0.4)
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 0,
                       ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text("Activate Account", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                          SizedBox(width: 8),
-                          Icon(Icons.arrow_forward)
-                        ],
-                      ),
+                      child: _isLoading 
+                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white))
+                        : const Text("Access Portal", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     ),
                   ),
-
-                  const SizedBox(height: 30),
-                   Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text("Privacy Policy", style: TextStyle(color: Colors.grey[400], fontSize: 12)),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: Text("•", style: TextStyle(color: Colors.grey[400])),
-                      ),
-                      Text("Terms of Service", style: TextStyle(color: Colors.grey[400], fontSize: 12)),
-                    ],
-                  )
                 ],
               ),
             )

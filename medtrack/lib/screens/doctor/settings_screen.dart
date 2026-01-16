@@ -1,8 +1,44 @@
 import 'package:flutter/material.dart';
 import '../../core/app_colors.dart';
+import '../../services/doctor_service.dart';
+import '../../services/auth_service.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  final _doctorService = DoctorService();
+  final _authService = AuthService();
+  
+  Map<String, dynamic>? _profile;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final data = await _doctorService.getDoctorProfile();
+    if (mounted) {
+      setState(() {
+        _profile = data;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _handleLogout() async {
+     await _authService.signOut();
+     if (mounted) {
+       Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+     }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -13,38 +49,40 @@ class SettingsScreen extends StatelessWidget {
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings, color: Colors.black),
-            onPressed: () {},
-          )
-        ],
-        automaticallyImplyLeading: false, // Hide back button if using tab
+        automaticallyImplyLeading: false, 
       ),
-      body: SingleChildScrollView(
+      body: _isLoading 
+        ? const Center(child: CircularProgressIndicator())
+        : SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
             // Profile & Stats
             const CircleAvatar(
               radius: 50,
-              backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=11'),
+              backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=11'), // Placeholder for now
             ),
             const SizedBox(height: 16),
-            const Text("Dr. Sarah Johnson", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: MedColors.textMain)),
-            const Text("Cardiologist", style: TextStyle(color: MedColors.textSecondary, fontSize: 16)),
-            const Text("St. Mary's General Hospital", style: TextStyle(color: MedColors.textSecondary, fontSize: 13)),
+            Text(
+              _profile?['full_name'] ?? "Doctor", 
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: MedColors.textMain)
+            ),
+            Text(
+              _profile?['specialty'] ?? "Specialist", 
+              style: const TextStyle(color: MedColors.textSecondary, fontSize: 16)
+            ),
+            const Text("MedTrack Hospital", style: TextStyle(color: MedColors.textSecondary, fontSize: 13)),
             const SizedBox(height: 30),
             
-            // Stats Row
-            Row(
+            // Stats Row (Mock data for stats still, as we don't have historical data)
+            const Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _ProfileStat(value: "15", label: "YEARS EXP."),
-                Container(height: 40, width: 1, color: Colors.grey.shade300),
-                _ProfileStat(value: "1.2k", label: "PATIENTS"),
-                 Container(height: 40, width: 1, color: Colors.grey.shade300),
-                _ProfileStat(value: "4.9", label: "RATING", isRating: true),
+                _ProfileStat(value: "5+", label: "YEARS EXP."),
+                SizedBox(height: 40, child: VerticalDivider()),
+                _ProfileStat(value: "2", label: "PATIENTS"), // We could fetch this count
+                SizedBox(height: 40, child: VerticalDivider()),
+                _ProfileStat(value: "5.0", label: "RATING", isRating: true),
               ],
             ),
             const SizedBox(height: 40),
@@ -63,7 +101,7 @@ class SettingsScreen extends StatelessWidget {
               ),
               child: const Column(
                 children: [
-                   _ContactRow(icon: Icons.email_outlined, label: "Email Address", value: "sarah.johnson@stmarys.med"),
+                   _ContactRow(icon: Icons.email_outlined, label: "Email Address", value: "doctor@test.com"), // Could fetch email too
                    Divider(height: 30),
                    _ContactRow(icon: Icons.phone_outlined, label: "Phone Number", value: "+1 (555) 012-3456"),
                 ],
@@ -91,23 +129,23 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
+              const SizedBox(height: 12),
               SizedBox(
-               width: double.infinity,
-               child: ElevatedButton(
-                 onPressed: () {},
-                 style: ElevatedButton.styleFrom(
-                   backgroundColor: MedColors.royalBlue,
-                   padding: const EdgeInsets.symmetric(vertical: 16),
-                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                   elevation: 0
-                 ),
-                 child: const Text("Edit Profile", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-               ),
-             ),
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pushNamed(context, '/password_change', arguments: false),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    side: const BorderSide(color: MedColors.royalBlue),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text("Change Password", style: TextStyle(color: MedColors.royalBlue, fontWeight: FontWeight.bold)),
+                ),
+              ),
              const SizedBox(height: 12),
              TextButton.icon(
-               onPressed: () => Navigator.pushReplacementNamed(context, '/'), 
+               onPressed: _handleLogout, 
                icon: const Icon(Icons.logout, color: Colors.redAccent, size: 20),
                label: const Text("Logout", style: TextStyle(color: Colors.redAccent)),
              )

@@ -30,6 +30,7 @@ class MedTextField extends StatelessWidget {
   final String hint;
   final bool isPassword;
   final IconData? icon;
+  final TextEditingController? controller;
 
   const MedTextField({
     super.key,
@@ -37,6 +38,7 @@ class MedTextField extends StatelessWidget {
     required this.hint,
     this.isPassword = false,
     this.icon,
+    this.controller,
   });
 
   @override
@@ -44,12 +46,15 @@ class MedTextField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-        ),
-        const SizedBox(height: 8),
+        if (label.isNotEmpty) ...[ // Handle empty label gracefully
+          Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+        ],
         TextField(
+          controller: controller,
           obscureText: isPassword,
           decoration: InputDecoration(
             hintText: hint,

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:medtrack/services/nurse_service.dart';
 import '../../core/app_colors.dart';
-import 'package:medtrack/screens/nurse/nurse_profile.dart';
+import '../../screens/nurse/nurse_profile.dart';
+import 'patient_detail_nurse.dart';
+import 'nurse_schedule.dart'; // Added Import
 
 class WardDashboard extends StatefulWidget {
   const WardDashboard({super.key});
@@ -14,8 +17,7 @@ class _WardDashboardState extends State<WardDashboard> {
 
   final List<Widget> _pages = [
     const _WardHome(),
-    const Center(child: Text("Schedule (Coming Soon)")), // Placeholder
-    const Center(child: Text("Chat (Coming Soon)")), // Placeholder
+    const NurseSchedule(), // Replaced Placeholder
     const NurseProfile(showBackButton: false),
   ];
 
@@ -49,8 +51,7 @@ class _WardDashboardState extends State<WardDashboard> {
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded), label: "Home"),
             BottomNavigationBarItem(icon: Icon(Icons.calendar_month_rounded), label: "Schedule"),
-            BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline_rounded), label: "Chat"),
-            BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), label: "Settings"),
+            BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), label: "Profile"),
           ],
         ),
       ),
@@ -58,11 +59,52 @@ class _WardDashboardState extends State<WardDashboard> {
   }
 }
 
-class _WardHome extends StatelessWidget {
+class _WardHome extends StatefulWidget {
   const _WardHome();
 
   @override
+  State<_WardHome> createState() => _WardHomeState();
+}
+
+class _WardHomeState extends State<_WardHome> {
+  final _nurseService = NurseService();
+  
+  Map<String, dynamic>? _nurseProfile;
+  List<Map<String, dynamic>> _patients = [];
+  Map<String, int> _stats = {'due': 0, 'done': 0, 'attended': 0};
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final profile = await _nurseService.getNurseProfile();
+    final patients = await _nurseService.getWardPatients();
+    final stats = await _nurseService.getWardStats();
+    
+    if (mounted) {
+      setState(() {
+        _nurseProfile = profile;
+        _patients = patients;
+        _stats = stats;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final nurseName = _nurseProfile?['full_name'] ?? 'Nurse';
+    final wardId = _nurseProfile?['ward_id'] ?? 'Unknown Ward';
+    final department = _nurseProfile?['department'] ?? 'General';
+
     return Column(
         children: [
           // Custom Header
@@ -78,23 +120,19 @@ class _WardHome extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        CircleAvatar(radius: 18, backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=5')), // Nurse Pic
-                        SizedBox(width: 10),
-                        Text("Nurse: Mary Johnson", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
+                        const CircleAvatar(radius: 18, backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=5')), // Placeholder Pic
+                        const SizedBox(width: 10),
+                        Text("Nurse: $nurseName", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
                       ],
                     ),
-                    IconButton(
-                      onPressed: () {}, // Can be used for notifications
-                      icon: const Icon(Icons.notifications_none, color: Colors.white)
-                    )
                   ],
                 ),
                 const SizedBox(height: 24),
                 
-                const Text("Ward 3A", style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
-                const Text("General Medicine", style: TextStyle(color: Colors.white70, fontSize: 16)),
+                Text(wardId.toLowerCase().contains('ward') ? wardId : "Ward $wardId", style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
+                Text(department, style: const TextStyle(color: Colors.white70, fontSize: 16)),
                 const SizedBox(height: 30),
 
                 // Stats Row
@@ -104,12 +142,12 @@ class _WardHome extends StatelessWidget {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                       _WardStat(value: "12", label: "PATIENTS", color: Colors.black),
-                       _WardStat(value: "5", label: "DUE", color: Colors.orange),
-                       _WardStat(value: "18", label: "DONE", color: MedColors.nursePrimary),
+                       _WardStat(value: "${_stats['attended']}", label: "ATTENDED", color: Colors.black),
+                       _WardStat(value: "${_stats['due']}", label: "DUE", color: Colors.orange),
+                       _WardStat(value: "${_stats['done']}", label: "DONE", color: MedColors.nursePrimary),
                     ],
                   ),
                 )
@@ -118,39 +156,31 @@ class _WardHome extends StatelessWidget {
           ),
           
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(24),
-              children: [
-                 _PatientMedCard(
-                   room: "Room 304", 
-                   status: "OVERDUE", 
-                   statusColor: Colors.red,
-                   name: "John Doe", 
-                   time: "09:00 AM", 
-                   med: "Insulin", 
-                   onTap: () => Navigator.pushNamed(context, '/nurse_patient_details'),
-                 ),
-                 _PatientMedCard(
-                   room: "Room 305", 
-                   status: "DUE SOON", 
-                   statusColor: Colors.orange,
-                   name: "Jane Smith", 
-                   time: "10:00 AM", 
-                   med: "Amoxicillin", 
-                   onTap: () => Navigator.pushNamed(context, '/nurse_patient_details'),
-                 ),
-                 _PatientMedCard(
-                   room: "Room 306", 
-                   status: "ON TIME", 
-                   statusColor: Colors.green,
-                   name: "Robert Brown", 
-                   time: "02:00 PM", 
-                   med: "Paracetamol", 
-                   isUpcoming: true,
-                   onTap: () => Navigator.pushNamed(context, '/nurse_patient_details'),
-                 ),
-              ],
-            ),
+            child: _patients.isEmpty
+              ? const Center(child: Text("No patients assigned."))
+              : ListView.builder(
+                  padding: const EdgeInsets.all(24),
+                  itemCount: _patients.length,
+                  itemBuilder: (context, index) {
+                    final patient = _patients[index];
+                    return _PatientMedCard(
+                      room: "Room ${patient['room_number'] ?? '304'} • ${patient['bed_number'] ?? 'Bed A'}", 
+                      status: "Stable", 
+                      statusColor: Colors.blue,
+                      name: patient['full_name'] ?? "Unknown", 
+                      time: "Now", 
+                      med: "View Details", 
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PatientDetailNurse(patient: patient),
+                          ),
+                        ).then((_) => _loadData());
+                      },
+                    );
+                  },
+                ),
           ),
         ],
       );
@@ -241,7 +271,7 @@ class _PatientMedCard extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {},
+                onPressed: onTap,
                 style: ElevatedButton.styleFrom(
                    backgroundColor: isUpcoming ? Colors.white : const Color(0xFF304FFE), // Blue from design
                    foregroundColor: isUpcoming ? Colors.grey : Colors.white,
@@ -250,7 +280,7 @@ class _PatientMedCard extends StatelessWidget {
                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                    padding: const EdgeInsets.symmetric(vertical: 14)
                 ),
-                child: Text(isUpcoming ? "Upcoming" : "Give Medication", style: const TextStyle(fontWeight: FontWeight.bold)),
+                child: Text(isUpcoming ? "Upcoming" : "View Details", style: const TextStyle(fontWeight: FontWeight.bold)),
               ),
             )
           ],

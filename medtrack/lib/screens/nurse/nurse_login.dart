@@ -2,8 +2,77 @@ import 'package:flutter/material.dart';
 import '../../core/app_colors.dart';
 import '../../widgets/shared_widgets.dart';
 
-class NurseLogin extends StatelessWidget {
+import '../../services/auth_service.dart';
+
+class NurseLogin extends StatefulWidget {
   const NurseLogin({super.key});
+
+  @override
+  State<NurseLogin> createState() => _NurseLoginState();
+}
+
+class _NurseLoginState extends State<NurseLogin> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isLoading = false;
+
+  Future<void> _handleLogin() async {
+    setState(() => _isLoading = true);
+
+    // Basic validation
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter both email and password')),
+      );
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    // Call Auth Service
+    final authService = AuthService();
+    final error = await authService.signIn(
+      email: _emailController.text.trim(),
+      password: _passwordController.text.trim(),
+    );
+
+    if (error != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error), backgroundColor: Colors.red),
+        );
+      }
+    } else {
+      // Check role
+      final role = await authService.getUserRole();
+      if (mounted) {
+        if (role == 'nurse') {
+          // Check for mandatory password change
+          final needsChange = await authService.checkNeedsPasswordChange();
+          if (mounted) {
+            if (needsChange) {
+              Navigator.pushReplacementNamed(context, '/password_change');
+            } else {
+              Navigator.pushReplacementNamed(context, '/ward_dashboard');
+            }
+          }
+        } else {
+          authService.signOut();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Access denied: You are not a nurse'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,9 +113,20 @@ class NurseLogin extends StatelessWidget {
                 children: [
                   MedTextField(label: "Ward ID", hint: "Enter Ward ID", icon: Icons.local_hospital_outlined),
                   const SizedBox(height: 20),
-                  MedTextField(label: "Email Address", hint: "nurse@hospital.com", icon: Icons.email_outlined),
+                  MedTextField(
+                    controller: _emailController,
+                    label: "Email Address",
+                    hint: "nurse@hospital.com",
+                    icon: Icons.email_outlined
+                  ),
                   const SizedBox(height: 20),
-                  MedTextField(label: "Password", hint: "Enter Password", isPassword: true, icon: Icons.lock_outline),
+                  MedTextField(
+                    controller: _passwordController,
+                    label: "Password",
+                    hint: "Enter Password",
+                    isPassword: true,
+                    icon: Icons.lock_outline
+                  ),
                   
                   Align(
                     alignment: Alignment.centerRight,
@@ -58,7 +138,7 @@ class NurseLogin extends StatelessWidget {
                   const SizedBox(height: 10),
                   
                   ElevatedButton(
-                    onPressed: () => Navigator.pushReplacementNamed(context, '/ward_dashboard'),
+                    onPressed: _isLoading ? null : _handleLogin,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1E3A8A), // Dark blue button from image
                       foregroundColor: Colors.white,
@@ -67,7 +147,9 @@ class NurseLogin extends StatelessWidget {
                       elevation: 5,
                       shadowColor: Colors.blue.withOpacity(0.3),
                     ),
-                    child: const Text("Sign In", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    child: _isLoading
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white))
+                      : const Text("Sign In", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
                   
                    const SizedBox(height: 40),

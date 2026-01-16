@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/app_colors.dart';
 import '../../widgets/primary_button.dart';
+import '../auth/password_change_screen.dart';
+
 
 class PatientProfileSettings extends StatelessWidget {
   const PatientProfileSettings({super.key});
@@ -32,7 +34,14 @@ class PatientProfileSettings extends StatelessWidget {
              _SettingTile(icon: Icons.person_outline, title: "Personal Details", onTap: (){}),
              _SettingTile(icon: Icons.history, title: "Medical History", onTap: (){}),
              _SettingTile(icon: Icons.notifications_outlined, title: "Notifications", onTap: (){}),
-             _SettingTile(icon: Icons.lock_outline, title: "Privacy & Security", onTap: (){}),
+             _SettingTile(
+               icon: Icons.lock_outline, 
+               title: "Change Password", 
+               onTap: () => Navigator.push(
+                 context, 
+                 MaterialPageRoute(builder: (context) => const PasswordChangeScreen(isMandatory: false))
+               ),
+             ),
              _SettingTile(icon: Icons.help_outline, title: "Help & Support", onTap: (){}),
              
              const SizedBox(height: 40),

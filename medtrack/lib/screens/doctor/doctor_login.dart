@@ -1,10 +1,80 @@
 import 'package:flutter/material.dart';
-import '../../core/app_colors.dart'; // Two levels up to core
+import '../../core/app_colors.dart';
 import '../../widgets/shared_widgets.dart';
-import '../../widgets/primary_button.dart';
+import '../../services/auth_service.dart';
 
-class DoctorLogin extends StatelessWidget {
+
+
+
+class DoctorLogin extends StatefulWidget {
   const DoctorLogin({super.key});
+
+  @override
+  State<DoctorLogin> createState() => _DoctorLoginState();
+}
+
+class _DoctorLoginState extends State<DoctorLogin> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isLoading = false;
+
+  Future<void> _handleLogin() async {
+    setState(() => _isLoading = true);
+
+    // Basic validation
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter both email and password')),
+      );
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    // Call Auth Service
+    final authService = AuthService(); // Ensure you import this
+    final error = await authService.signIn(
+      email: _emailController.text.trim(),
+      password: _passwordController.text.trim(),
+    );
+
+    if (error != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error), backgroundColor: Colors.red),
+        );
+      }
+    } else {
+      // Check role
+      final role = await authService.getUserRole();
+      if (mounted) {
+        if (role == 'doctor') {
+          // Check for mandatory password change
+          final needsChange = await authService.checkNeedsPasswordChange();
+          if (mounted) {
+            if (needsChange) {
+              Navigator.pushReplacementNamed(context, '/password_change');
+            } else {
+              Navigator.pushReplacementNamed(context, '/doctor_dashboard');
+            }
+          }
+        } else {
+          await authService.signOut();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Access denied: Role is ${role ?? "NULL"}. Expected: doctor'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -80,12 +150,14 @@ class DoctorLogin extends StatelessWidget {
                     children: [
                       const SizedBox(height: 20),
                       MedTextField(
+                        controller: _emailController,
                         label: "Email",
                         hint: "doctor@hospital.com",
                         icon: Icons.email,
                       ),
                       const SizedBox(height: 20),
                       MedTextField(
+                        controller: _passwordController,
                         label: "Password",
                         hint: "••••••••",
                         isPassword: true,
@@ -93,18 +165,17 @@ class DoctorLogin extends StatelessWidget {
                       ),
                       const SizedBox(height: 30),
                       ElevatedButton(
-                        onPressed: () => Navigator.pushReplacementNamed(
-                          context,
-                          '/doctor_dashboard',
-                        ),
+                        onPressed: _isLoading ? null : _handleLogin,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: MedColors.drPrimary,
                           minimumSize: const Size(double.infinity, 55),
                         ),
-                        child: const Text(
-                          "Sign In",
-                          style: TextStyle(color: Colors.white),
-                        ),
+                        child: _isLoading 
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text(
+                              "Sign In",
+                              style: TextStyle(color: Colors.white),
+                            ),
                       ),
                     ],
                   ),

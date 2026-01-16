@@ -1,15 +1,63 @@
 import 'package:flutter/material.dart';
 import '../../core/app_colors.dart';
+import '../../services/nurse_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-class NurseProfile extends StatelessWidget {
+class NurseProfile extends StatefulWidget {
   final bool showBackButton;
   const NurseProfile({super.key, this.showBackButton = true});
 
   @override
+  State<NurseProfile> createState() => _NurseProfileState();
+}
+
+class _NurseProfileState extends State<NurseProfile> {
+  final _nurseService = NurseService();
+  Map<String, dynamic>? _profile;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final data = await _nurseService.getNurseProfile();
+     if (mounted) {
+      setState(() {
+        _profile = data;
+        _isLoading = false;
+      });
+    }
+  }
+  
+  Future<void> _signOut() async {
+    try {
+      await Supabase.instance.client.auth.signOut();
+      if (mounted) {
+        // Navigate to Landing
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error signing out: $e')));
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    
+    final name = _profile?['full_name'] ?? 'Nurse';
+    final email = _profile?['email'] ?? 'nurse@hospital.org';
+    final ward = _profile?['ward_id'] ?? 'Unknown';
+    final shift = _profile?['shift'] ?? 'Day';
+    final dept = _profile?['department'] ?? 'General';
+
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      body: SingleChildScrollView(
+      body: _isLoading 
+        ? const Center(child: CircularProgressIndicator()) 
+        : SingleChildScrollView(
         child: Column(
           children: [
             // Custom Header
@@ -24,11 +72,11 @@ class NurseProfile extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      showBackButton 
+                      widget.showBackButton 
                           ? IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.arrow_back, color: Colors.white))
-                          : const SizedBox(width: 48), // Placeholder to keep title centered if needed, or just remove
+                          : const SizedBox(width: 24), 
                       const Text("My Profile", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                      const Icon(Icons.settings, color: Colors.white)
+                      const SizedBox(width: 48), // Balanced space instead of settings icon
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -37,16 +85,16 @@ class NurseProfile extends StatelessWidget {
                     backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=5'),
                   ),
                    const SizedBox(height: 12),
-                   const Text("Mary Johnson, RN", style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                   Text("$name, RN", style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
                    const SizedBox(height: 4),
-                   const Text("ID: #88219 • Ward 3A", style: TextStyle(color: Colors.white70)),
+                   Text(ward.toLowerCase().contains('ward') ? "$ward • $dept" : "Ward $ward • $dept", style: const TextStyle(color: Colors.white70)),
                 ],
               ),
             ),
             
             const SizedBox(height: 20),
             
-            // Stats
+            // Stats (Cleaned up: Only Shift from DB)
             Padding(
                padding: const EdgeInsets.symmetric(horizontal: 24),
                child: Container(
@@ -56,12 +104,11 @@ class NurseProfile extends StatelessWidget {
                    borderRadius: BorderRadius.circular(20),
                    boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 10)]
                  ),
-                 child: const Row(
+                 child: Row(
                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                    children: [
-                     _ProfileStat(value: "1,247", label: "MEDS GIVEN", icon: Icons.medication),
-                     _ProfileStat(value: "Day", label: "CURRENT SHIFT", icon: Icons.wb_sunny, color: Colors.orange),
-                     _ProfileStat(value: "8", label: "YEARS EXP", icon: Icons.star, color: Colors.purple),
+                     _ProfileStat(value: shift, label: "CURRENT SHIFT", icon: Icons.wb_sunny, color: Colors.orange),
+                     _ProfileStat(value: dept, label: "DEPARTMENT", icon: Icons.local_hospital, color: Colors.blue),
                    ],
                  ),
                ),
@@ -74,31 +121,23 @@ class NurseProfile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("Contact Details", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                  const Text("Account Information", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
                   const SizedBox(height: 10),
-                  const _InfoTile(icon: Icons.phone, title: "(555) 123-4567", subtitle: "Mobile"),
-                   const _InfoTile(icon: Icons.email, title: "m.johnson@hospital.org", subtitle: "Work Email"),
-                   const _InfoTile(icon: Icons.person, title: "John Doe (Husband)", subtitle: "Emergency Contact", iconColor: Colors.red),
+                   _InfoTile(icon: Icons.email, title: email, subtitle: "Work Email"),
                    
-                   const SizedBox(height: 30),
-                   
-                   Row(
-                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                     children: [
-                       const Text("Certifications", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-                       Text("View All", style: TextStyle(color: Colors.grey[400], fontSize: 12)),
-                     ],
+                   const SizedBox(height: 20),
+                   _InfoTile(
+                     icon: Icons.lock_outline, 
+                     title: "Change Password", 
+                     subtitle: "Security Settings",
+                     onTap: () => Navigator.pushNamed(context, '/password_change', arguments: false), 
                    ),
-                   const SizedBox(height: 10),
-                   
-                   _CertItem(title: "BLS (Basic Life Support)", exp: "Exp: 11/2026"),
-                   _CertItem(title: "ACLS (Advanced Cardiac)", exp: "Exp: 06/2025"),
-                   
+
                    const SizedBox(height: 40),
                    
                    Center(
                      child: TextButton.icon(
-                       onPressed: () => Navigator.pushReplacementNamed(context, '/'), 
+                       onPressed: _signOut, 
                        icon: const Icon(Icons.logout, color: Colors.red),
                        label: const Text("Log Out", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
                      ),
@@ -139,33 +178,42 @@ class _InfoTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final Color? iconColor;
+  final VoidCallback? onTap;
 
-  const _InfoTile({required this.icon, required this.title, required this.subtitle, this.iconColor});
+  const _InfoTile({required this.icon, required this.title, required this.subtitle, this.iconColor, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-      child: Row(
-        children: [
-          Container(
-             padding: const EdgeInsets.all(8),
-             decoration: BoxDecoration(color: (iconColor ?? MedColors.nursePrimary).withOpacity(0.1), shape: BoxShape.circle),
-             child: Icon(icon, color: iconColor ?? MedColors.nursePrimary, size: 20),
-          ),
-          const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-              Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-            ],
-          ),
-          const Spacer(),
-          const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey)
-        ],
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white, 
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade100)
+        ),
+        child: Row(
+          children: [
+            Container(
+               padding: const EdgeInsets.all(8),
+               decoration: BoxDecoration(color: (iconColor ?? MedColors.nursePrimary).withOpacity(0.1), shape: BoxShape.circle),
+               child: Icon(icon, color: iconColor ?? MedColors.nursePrimary, size: 20),
+            ),
+            const SizedBox(width: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+              ],
+            ),
+            const Spacer(),
+            const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey)
+          ],
+        ),
       ),
     );
   }

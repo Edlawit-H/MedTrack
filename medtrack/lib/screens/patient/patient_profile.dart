@@ -1,11 +1,66 @@
 import 'package:flutter/material.dart';
 import '../../core/app_colors.dart';
+import '../../services/patient_service.dart';
+import '../../services/auth_service.dart';
+import 'package:intl/intl.dart';
 
-class PatientProfile extends StatelessWidget {
+
+class PatientProfile extends StatefulWidget {
   const PatientProfile({super.key});
 
   @override
+  State<PatientProfile> createState() => _PatientProfileState();
+}
+
+class _PatientProfileState extends State<PatientProfile> {
+  final _patientService = PatientService();
+  final _authService = AuthService();
+  Map<String, dynamic>? _profile;
+  List<Map<String, dynamic>> _meds = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileData();
+  }
+
+  Future<void> _loadProfileData() async {
+    final profile = await _patientService.getPatientProfile();
+    final meds = await _patientService.getPrescriptions();
+    
+    if (mounted) {
+      setState(() {
+        _profile = profile;
+        _meds = meds;
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+
+    // Extract Data safely
+    final fullName = _profile?['full_name'] ?? 'Guest';
+    final mrn = _profile?['mrn'] ?? 'N/A';
+    final dobString = _profile?['date_of_birth'];
+    
+    // Calculate Age
+    String age = "N/A";
+    String dobFormatted = "N/A";
+    if (dobString != null) {
+      final dob = DateTime.parse(dobString);
+      dobFormatted = DateFormat('MMM dd, yyyy').format(dob);
+      final now = DateTime.now();
+      final years = now.year - dob.year;
+      age = "$years Yrs";
+    }
+
+    final doctorName = _profile?['doctors']?['profiles']?['full_name'] ?? 'Not Assigned';    
+    final doctorSpecialty = _profile?['doctors']?['specialty'] ?? 'General';
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -15,7 +70,6 @@ class PatientProfile extends StatelessWidget {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
         actions: const [
-          Icon(Icons.edit, color: Colors.blue),
           SizedBox(width: 20)
         ],
       ),
@@ -25,19 +79,17 @@ class PatientProfile extends StatelessWidget {
           children: [
             const CircleAvatar(
               radius: 40,
-              backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=12'),
+              backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=12'), // Generic avatar
             ),
             const SizedBox(height: 12),
-            const Text("Sarah Jenkins", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const Text("ID: 4983225", style: TextStyle(color: Colors.grey, fontSize: 12)),
+            Text(fullName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text("MRN: $mrn", style: const TextStyle(color: Colors.grey, fontSize: 12)),
             
             const SizedBox(height: 16),
             const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _TagP(label: "A+ Blood", color: Colors.blue),
-                SizedBox(width: 10),
-                _TagP(label: "Active Status", color: Colors.green),
+                _TagP(label: "Active Patient", color: Colors.green),
               ],
             ),
             
@@ -45,9 +97,9 @@ class PatientProfile extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                 _InfoCol(label: "DATE OF BIRTH", value: "Jan 12, 1980"),
+                 _InfoCol(label: "DATE OF BIRTH", value: dobFormatted),
                  Container(height: 30, width: 1, color: Colors.grey.shade300),
-                 _InfoCol(label: "AGE", value: "44 Yrs"),
+                 _InfoCol(label: "AGE", value: age),
               ],
             ),
             
@@ -61,11 +113,11 @@ class PatientProfile extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade200), borderRadius: BorderRadius.circular(12)),
-              child: const ListTile(
-                leading: CircleAvatar(backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=5')),
-                title: Text("Dr. Emily Chen", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                subtitle: Text("Cardiologist\nSt. Mary's Hospital", style: TextStyle(fontSize: 12)),
-                trailing: CircleAvatar(backgroundColor: Color(0xFFE8EAF6), child: Icon(Icons.call, color: MedColors.royalBlue, size: 18)),
+              child: ListTile(
+                leading: const CircleAvatar(backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=5')),
+                title: Text(doctorName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                subtitle: Text("$doctorSpecialty\nMedTrack Hospital", style: const TextStyle(fontSize: 12)),
+                trailing: const CircleAvatar(backgroundColor: Color(0xFFE8EAF6), child: Icon(Icons.call, color: MedColors.royalBlue, size: 18)),
               ),
             ),
             
@@ -76,36 +128,44 @@ class PatientProfile extends StatelessWidget {
                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                children: [
                  const _SectionHeader(title: "My Medications", icon: Icons.medication),
-                 Text("View Schedule", style: TextStyle(color: Colors.blue.shade700, fontSize: 11, fontWeight: FontWeight.bold))
+                 Text("${_meds.length} Active", style: TextStyle(color: Colors.blue.shade700, fontSize: 11, fontWeight: FontWeight.bold))
                ],
              ),
              const SizedBox(height: 12),
-             _MedRow(name: "Atorvastatin", dose: "20mg • 1 Tablet", next: "8:00 PM"),
-             _MedRow(name: "Metoprolol", dose: "50mg • 1 Tablet", next: "Tomorrow"),
+
+             _meds.isEmpty 
+               ? const Text("No active medications.", style: TextStyle(color: Colors.grey))
+               : Column(
+                  children: _meds.map((m) {
+                    final name = m['medications']?['name'] ?? 'Medication';
+                    final dose = m['dosage'] ?? '';
+                    final freq = m['frequency'] ?? '';
+                    return _MedRow(name: name, dose: dose, next: freq);
+                  }).toList(),
+               ),
              
              const SizedBox(height: 24),
              
              // Medical Info
              const _SectionHeader(title: "Medical Information", icon: Icons.info_outline),
              const SizedBox(height: 10),
-             const Align(alignment: Alignment.centerLeft, child: Text("ALLERGIES", style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold))),
+             const Align(alignment: Alignment.centerLeft, child: Text("DETAILS", style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold))),
              const SizedBox(height: 6),
-             const Row(children: [_TagP(label: "Warning: Penicillin", color: Colors.red), SizedBox(width: 8), _TagP(label: "Peanuts", color: Colors.red)]),
-             const SizedBox(height: 12),
-             const Align(alignment: Alignment.centerLeft, child: Text("CONDITIONS", style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold))),
-             const SizedBox(height: 6),
-             const Row(children: [_TagP(label: "Hypertension", color: Colors.blue), SizedBox(width: 8), _TagP(label: "High Cholesterol", color: Colors.blue)]),
+              // Dummy tags for now as allergies aren't in DB yet
+             const Row(children: [_TagP(label: "Routine Checkup", color: Colors.blue)]),
              
              const SizedBox(height: 30),
              
              // Preferences
              const _SectionHeader(title: "Preferences", icon: Icons.settings),
              const SwitchListTile(value: true, onChanged: null, title: Text("Push Notifications", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)), subtitle: Text("Receive alerts on lock screen", style: TextStyle(fontSize: 11))),
-             const SwitchListTile(value: true, onChanged: null, title: Text("Refill Reminders", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)), subtitle: Text("Alert 3 days before expiry", style: TextStyle(fontSize: 11))),
              
              const SizedBox(height: 30),
              TextButton.icon(
-               onPressed: () => Navigator.pushReplacementNamed(context, '/'), 
+                onPressed: () async {
+                   await _authService.signOut();
+                   if (mounted) Navigator.pushReplacementNamed(context, '/'); 
+                }, 
                icon: const Icon(Icons.logout, color: Colors.black), 
                label: const Text("Log Out", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold))
              )
@@ -126,7 +186,7 @@ class _TagP extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
       child: Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
     );
   }
@@ -197,7 +257,7 @@ class _MedRow extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text("Next Dose", style: TextStyle(color: Colors.grey, fontSize: 9)),
+              const Text("Frequency", style: TextStyle(color: Colors.grey, fontSize: 9)),
               Text(next, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
             ],
           )

@@ -1,21 +1,48 @@
 import 'package:flutter/material.dart';
 import '../../core/app_colors.dart';
+import '../../services/nurse_service.dart';
 
 class DischargeScreen extends StatefulWidget {
-  const DischargeScreen({super.key});
+  final Map<String, dynamic> patient;
+  const DischargeScreen({super.key, required this.patient});
 
   @override
   State<DischargeScreen> createState() => _DischargeScreenState();
 }
 
 class _DischargeScreenState extends State<DischargeScreen> {
+  final _nurseService = NurseService();
   bool isProtocol1 = true;
   bool isProtocol2 = true;
   bool isProtocol3 = true;
   bool isProtocol4 = false;
+  bool _isLoading = false;
+
+  Future<void> _completeDischarge() async {
+    setState(() => _isLoading = true);
+    try {
+      await _nurseService.dischargePatient(widget.patient['id']);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Patient Discharged Successfully"), backgroundColor: Colors.green),
+        );
+        Navigator.pop(context, true); // Return true to signal refresh
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final name = widget.patient['full_name'] ?? 'Unknown';
+    final room = widget.patient['room_number'] ?? 'N/A';
+    final id = widget.patient['id'].toString().substring(0, 8);
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -34,12 +61,11 @@ class _DischargeScreenState extends State<DischargeScreen> {
                children: [
                  const CircleAvatar(radius: 30, backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=12')),
                  const SizedBox(width: 16),
-                 const Column(
+                 Column(
                    crossAxisAlignment: CrossAxisAlignment.start,
                    children: [
-                     Text("John Doe", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                     Row(children: [Icon(Icons.meeting_room, size: 14, color: Colors.grey), SizedBox(width: 4), Text("Room 304 • ID #448392", style: TextStyle(color: Colors.grey))]),
-                     Text("DOB: Jan 12, 1980 (44y)", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                     Text(name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                     Row(children: [const Icon(Icons.meeting_room, size: 14, color: Colors.grey), const SizedBox(width: 4), Text("Room $room • ID #$id", style: const TextStyle(color: Colors.grey))]),
                    ],
                  ),
                ],
@@ -63,33 +89,36 @@ class _DischargeScreenState extends State<DischargeScreen> {
              Row(
                mainAxisAlignment: MainAxisAlignment.spaceAround,
                children: [
-                 _ActionIcon(icon: Icons.mobile_screen_share, label: "Send to\nApp"),
-                 _ActionIcon(icon: Icons.email, label: "Email\nPDF"),
-                 _ActionIcon(icon: Icons.print, label: "Print\nSummary"),
+                 const _ActionIcon(icon: Icons.mobile_screen_share, label: "Send to\nApp"),
+                 const _ActionIcon(icon: Icons.email, label: "Email\nPDF"),
+                 const _ActionIcon(icon: Icons.print, label: "Print\nSummary"),
                ],
              ),
 
              const SizedBox(height: 50),
              
-             const Text("Discharge recorded by\nNurse Sarah Jenkins - 10:42 AM", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 12)),
+             const Text("Discharge recording follows\nHospital Discharge Policy", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 12)),
              const SizedBox(height: 20),
              
               SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: _isLoading ? null : _completeDischarge,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: MedColors.nursePrimary,
                   padding: const EdgeInsets.symmetric(vertical: 18),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 0
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.check_circle, color: Colors.white),
-                    SizedBox(width: 8),
-                    Text("Complete Discharge", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                    if(_isLoading) const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    else ...[
+                      const Icon(Icons.check_circle, color: Colors.white),
+                      const SizedBox(width: 8),
+                      const Text("Complete Discharge", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                    ]
                   ],
                 ),
               ),
@@ -97,7 +126,7 @@ class _DischargeScreenState extends State<DischargeScreen> {
              const SizedBox(height: 16),
              TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel Discharge", style: TextStyle(color: Colors.grey)))
 
-          ],
+           ],
         ),
       ),
     );

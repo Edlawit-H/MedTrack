@@ -11,9 +11,6 @@ class DoctorProfile extends StatelessWidget {
       appBar: AppBar(
         title: const Text("My Profile"),
         centerTitle: true,
-        actions: [
-          IconButton(icon: const Icon(Icons.settings), onPressed: () {}),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -75,15 +72,6 @@ class DoctorProfile extends StatelessWidget {
               ),
             ]),
             const SizedBox(height: 30),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: MedColors.drPrimary,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 55),
-              ),
-              onPressed: () {},
-              child: const Text("Edit Profile"),
-            ),
             TextButton(
               onPressed: () {},
               child: const Text(
